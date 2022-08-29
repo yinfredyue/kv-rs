@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[clap(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None)] // Read from Cargo.toml
 #[clap(propagate_version = true)]
 struct Cli {
     #[clap(subcommand)]
@@ -10,7 +10,6 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Adds files to myapp
     Get { key: String },
     Set { key : String, value : String},
     Rm  { key : String }
@@ -19,8 +18,6 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
     match &cli.command {
         Commands::Get { key } => {
             eprintln!("unimplemented");
