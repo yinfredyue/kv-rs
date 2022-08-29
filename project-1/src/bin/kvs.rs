@@ -11,25 +11,25 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     Get { key: String },
-    Set { key : String, value : String},
-    Rm  { key : String }
+    Set { key: String, value: String },
+    Rm { key: String },
 }
 
 fn main() {
     let cli = Cli::parse();
 
     match &cli.command {
-        Commands::Get { key } => {
+        Commands::Get { key: _ } => {
             eprintln!("unimplemented");
             todo!()
-        },
-        Commands::Set { key, value } => {
+        }
+        Commands::Set { key: _, value: _ } => {
             eprintln!("unimplemented");
             todo!()
-        },
-        Commands::Rm { key } => {
+        }
+        Commands::Rm { key: _ } => {
             eprintln!("unimplemented");
             todo!()
-        },
+        }
     }
 }
