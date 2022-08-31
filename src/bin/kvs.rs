@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use kvs::Result;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)] // Read from Cargo.toml
@@ -15,21 +16,21 @@ enum Commands {
     Rm { key: String },
 }
 
-fn main() {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Get { key: _ } => {
             eprintln!("unimplemented");
-            todo!()
+            Result::Ok(())
         }
         Commands::Set { key: _, value: _ } => {
             eprintln!("unimplemented");
-            todo!()
+            Result::Ok(())
         }
         Commands::Rm { key: _ } => {
             eprintln!("unimplemented");
-            todo!()
+            Result::Ok(())
         }
     }
 }
