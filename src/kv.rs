@@ -11,6 +11,8 @@ use std::{
     path,
 };
 
+// Log entry written to file.
+// Set is {key, Some(value)}. Remove is {key, None}.
 #[derive(Debug, Serialize, Deserialize)]
 struct Entry {
     key: String,
@@ -36,7 +38,8 @@ struct Stat {
     total: usize,
 }
 
-/// `KvStore` stores key-value pairs
+/// `KvStore` stores key-value pairs, using log-structured hashtable.
+/// The serialization format is JSON, for easy development & debugging.
 #[derive(Debug)]
 pub struct KvStore {
     // immutable
@@ -56,13 +59,12 @@ impl KvStore {
         let file_path = Box::new(dir_path.join("data.json"));
         let mut file = Self::open_logfile(&file_path);
         let mapping = Self::mapping_from_log(&mut file)?;
-        let stat = Stat { total: 0 };
         let store = KvStore {
             dir_path,
             file_path,
             file,
             mapping,
-            stat,
+            stat: Stat { total: 0 },
         };
         Ok(store)
     }
@@ -99,8 +101,8 @@ impl KvStore {
             key: key.to_owned(),
             value: None,
         };
-        let (offset, size) = self.append_log(entry)?;
-        self.mapping.insert(key, SerMeta { offset, size });
+        self.append_log(entry)?;
+        self.mapping.remove(&key);
         Ok(())
     }
 
@@ -119,27 +121,27 @@ impl KvStore {
         if file.metadata()?.len() > 0 {
             let mut content = String::new();
             file.read_to_string(&mut content)?;
-            let stream = Deserializer::from_str(&content).into_iter::<Entry>();
+            let mut stream = Deserializer::from_str(&content).into_iter::<Entry>();
 
             let mut offset = 0;
-            for entry in stream {
+            while let Some(entry) = stream.next() {
                 let entry = entry?;
 
-                // This is an expensive way to get size. Can we do better?
-                let size = serde_json::to_vec(&entry).unwrap().len();
+                let new_offset = stream.byte_offset();
+                let size = new_offset - offset;
                 if entry.is_remove() {
                     mapping.remove(&entry.key);
                 } else {
                     mapping.insert(entry.key, SerMeta { offset, size });
                 }
 
-                offset += size;
+                offset = new_offset;
             }
         }
         Ok(mapping)
     }
 
-    /// You probably want to use `append_log`. This function shoudl only
+    /// You probably want to use `append_log`. This function should only
     /// be called by `append_log`.
     fn append_file(file: &mut File, entry: Entry) -> Result<(usize, usize)> {
         let serialized = serde_json::to_string(&entry)?;
