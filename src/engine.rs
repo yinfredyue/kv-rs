@@ -88,7 +88,7 @@ impl KvStore {
     }
 
     // Generate in-memory mapping by replaying a log file.
-    fn mapping_from_log(file: &mut fs::File) -> Result<HashMap<String, SerMeta>> {
+    fn mapping_from_log(file: &mut fs::File) -> Result<HashMap<String, EntryPos>> {
         let mut mapping = HashMap::new();
         if file.metadata()?.len() > 0 {
             let mut content = String::new();
@@ -96,15 +96,40 @@ impl KvStore {
             let mut stream = Deserializer::from_str(&content).into_iter::<Entry>();
 
             let mut offset = 0;
-            while let Some(entry) = stream.next() {
-                let entry = entry?;
+
+            // `stream` is StreamDeserializer. We want to iterate over it
+            // and call `stream.byte_offset()` when iterating. `byte_offset`
+            // requires a reference.
+            // Thus, when iterating it, we cannot consume/move `stream`, we
+            // cannot use a mutable reference of `stream`. We can only
+            // use a immutable reference for `stream`.
+            // However, this is not supported.
+            // 1. we cannot use `for v in stream`, because `for` loop is
+            // just syntax sugar calling `into_iter` which consumes the value.
+            // 2. we cannot use `for v in &mut stream` as it creates 
+            // mutable borrow.
+            // 3. we cannot do `for entry in &stream`, error message:
+            // ```
+            // `&StreamDeserializer<...>` is not an iterator
+            // the trait `Iterator` is not implemented for `&StreamDeserializer<...>`
+            // ```
+            // 
+            // The workaround is to use `next` method in a while let loop.
+            // `stream.next()` only borrows input for the duration of its own 
+            // call, since the return value is owned.
+            // https://www.reddit.com/r/rust/comments/2pqcgt/while_let_someitem_iteratornext/
+            // https://github.com/rust-lang/rust/issues/8372
+            while let Some(Ok(entry)) = stream.next() {
+                let entry = entry;
 
                 let new_offset = stream.byte_offset();
                 let size = new_offset - offset;
+
+                // This is an expensive way to get size. Can we do better?
                 if entry.is_remove() {
                     mapping.remove(&entry.key);
                 } else {
-                    mapping.insert(entry.key, SerMeta { offset, size });
+                    mapping.insert(entry.key, EntryPos { offset, size });
                 }
 
                 offset = new_offset;
