@@ -1,4 +1,6 @@
 use clap::{Parser, ValueEnum};
+use tracing::info;
+use tracing_subscriber;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum Engine {
@@ -20,7 +22,10 @@ struct Args {
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let args = Args::parse();
 
-    println!("{}, {:?}", args.addr, args.engine);
+    info!("Version: {}", env!("CARGO_PKG_VERSION"));
+    info!("addr: {}, Engine: {:?}", args.addr, args.engine);
 }
