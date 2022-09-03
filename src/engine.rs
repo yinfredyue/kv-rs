@@ -48,7 +48,8 @@ struct Stat {
     total: usize,
 }
 
-/// `KvStore` stores key-value pairs, using log-structured hashtable.  // /// The serialization format is JSON, for easy development & debugging.
+/// `KvStore` stores key-value pairs, using log-structured hashtable.  
+/// The serialization format is JSON, for easy development & debugging.
 #[derive(Debug)]
 pub struct KvStore {
     // immutable
@@ -106,16 +107,16 @@ impl KvStore {
             // However, this is not supported.
             // 1. we cannot use `for v in stream`, because `for` loop is
             // just syntax sugar calling `into_iter` which consumes the value.
-            // 2. we cannot use `for v in &mut stream` as it creates 
+            // 2. we cannot use `for v in &mut stream` as it creates
             // mutable borrow.
             // 3. we cannot do `for entry in &stream`, error message:
             // ```
             // `&StreamDeserializer<...>` is not an iterator
             // the trait `Iterator` is not implemented for `&StreamDeserializer<...>`
             // ```
-            // 
+            //
             // The workaround is to use `next` method in a while let loop.
-            // `stream.next()` only borrows input for the duration of its own 
+            // `stream.next()` only borrows input for the duration of its own
             // call, since the return value is owned.
             // https://www.reddit.com/r/rust/comments/2pqcgt/while_let_someitem_iteratornext/
             // https://github.com/rust-lang/rust/issues/8372
@@ -141,11 +142,11 @@ impl KvStore {
     // append some value to the log file, returning (offset, size).
     // Should only be called by `compact` and `append_entry`.
     fn append_file<T: Serialize>(file: &mut File, value: T) -> Result<(usize, usize)> {
-        let serialized = serde_json::to_string(&value)?;
+        let serialized = serde_json::to_vec(&value)?;
 
-        let size = serialized.as_bytes().len();
+        let size = serialized.len();
         let offset = file.metadata().unwrap().len() as usize;
-        file.write(serialized.as_bytes())?;
+        file.write(&serialized)?;
 
         Ok((offset, size))
     }

@@ -1,5 +1,6 @@
 use clap::{Parser, ValueEnum};
-use std::net::{SocketAddr, TcpListener, TcpStream};
+use kvs::{KvServer, KvStore, Result};
+use std::net::SocketAddr;
 use tracing::info;
 use tracing_subscriber;
 
@@ -22,11 +23,7 @@ struct Args {
     engine: Engine,
 }
 
-fn handle_connection(stream: TcpStream) {
-    info!("Connection!");
-}
-
-fn main() {
+fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let args = Args::parse();
@@ -34,9 +31,13 @@ fn main() {
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
     info!("addr: {}, Engine: {:?}", args.addr, args.engine);
 
-    let listener = TcpListener::bind(args.addr).unwrap();
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        handle_connection(stream);
-    }
+    match args.engine {
+        Engine::Kvs => KvServer::serve(
+            KvStore::open(std::env::current_dir()?.as_path())?,
+            args.addr,
+        ),
+        Engine::Sled => todo!(),
+    };
+
+    Ok(())
 }

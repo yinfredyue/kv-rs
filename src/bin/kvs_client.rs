@@ -1,14 +1,11 @@
 use clap::{Parser, Subcommand};
-use kvs::{KvStore, KvStoreError, Result};
-use std::{
-    io::Write,
-    net::{SocketAddr, TcpStream},
-};
+use kvs::{KvClient, KvStoreError, Result};
+use std::net::SocketAddr;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)] // Read from Cargo.toml
 #[clap(propagate_version = true)]
-struct Cli {
+struct Args {
     #[clap(
         long,
         global = true, // Global args can be provided anywhere in the command
@@ -29,14 +26,24 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let args = Args::parse();
 
-    let mut stream = TcpStream::connect(cli.addr)?;
-    stream.write("hello!".as_bytes())?;
+    let mut cli = KvClient::new(args.addr)?;
 
-    match &cli.command {
-        Commands::Get { key } => Ok(()),
-        Commands::Set { key, value } => Ok(()),
-        Commands::Rm { key } => Ok(()),
+    match &args.command {
+        Commands::Get { key } => {
+            let resp = cli.get(key.to_owned())?;
+            println!("{:?}", resp);
+        }
+        Commands::Set { key, value } => {
+            let resp = cli.set(key.to_owned(), value.to_owned())?;
+            println!("{:?}", resp);
+        }
+        Commands::Rm { key } => {
+            let resp = cli.remove(key.to_owned())?;
+            println!("{:?}", resp);
+        }
     }
+
+    Ok(())
 }

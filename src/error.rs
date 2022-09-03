@@ -1,6 +1,8 @@
 /// Errors
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+///
+#[derive(Serialize, Deserialize, Debug)]
 pub enum KvStoreError {
     ///
     IoError,
