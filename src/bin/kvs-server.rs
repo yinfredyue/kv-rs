@@ -3,10 +3,11 @@ use kvs::{KvServer, KvStore, Result};
 use std::net::SocketAddr;
 use tracing::info;
 
+#[allow(non_camel_case_types)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum Engine {
-    Kvs,
-    Sled,
+    kvs,
+    sled,
 }
 
 #[derive(Parser)]
@@ -18,12 +19,14 @@ struct Args {
     addr: SocketAddr,
 
     /// Storage engine: 'kvs' or 'sled'
-    #[clap(long, arg_enum, value_parser, default_value_t = Engine::Kvs)]
+    #[clap(long, arg_enum, value_parser, default_value_t = Engine::kvs)]
     engine: Engine,
 }
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
 
     let args = Args::parse();
 
@@ -31,11 +34,11 @@ fn main() -> Result<()> {
     info!("addr: {}, Engine: {:?}", args.addr, args.engine);
 
     match args.engine {
-        Engine::Kvs => KvServer::serve(
+        Engine::kvs => KvServer::serve(
             KvStore::open(std::env::current_dir()?.as_path())?,
             args.addr,
         ),
-        Engine::Sled => todo!(),
+        Engine::sled => todo!(),
     }?;
 
     Ok(())

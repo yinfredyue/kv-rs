@@ -32,18 +32,21 @@ fn main() -> Result<()> {
 
     match &args.command {
         Commands::Get { key } => {
-            let resp = cli.get(key.to_owned())?;
-            println!("{:?}", resp);
+            match cli.get(key.to_owned())? {
+                None => println!("Key not found"), // test requires stdout
+                Some(resp) => println!("{}", resp),
+            };
+            Ok(())
         }
-        Commands::Set { key, value } => {
-            cli.set(key.to_owned(), value.to_owned())?;
-            println!("Ok");
-        }
-        Commands::Rm { key } => {
-            cli.remove(key.to_owned())?;
-            println!("Ok");
-        }
+        Commands::Set { key, value } => cli.set(key.to_owned(), value.to_owned()),
+        Commands::Rm { key } => match cli.remove(key.to_owned()) {
+            Ok(()) => {
+                Result::Ok(())
+            }
+            Err(err) => {
+                eprintln!("Key not found"); // test requires stderr
+                return Result::Err(err);
+            }
+        },
     }
-
-    Ok(())
 }
