@@ -2,7 +2,6 @@ use clap::{Parser, ValueEnum};
 use kvs::{KvServer, KvStore, Result};
 use std::net::SocketAddr;
 use tracing::info;
-use tracing_subscriber;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
 enum Engine {
@@ -37,7 +36,7 @@ fn main() -> Result<()> {
             args.addr,
         ),
         Engine::Sled => todo!(),
-    };
+    }?;
 
     Ok(())
 }

@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use kvs::{KvClient, KvStoreError, Result};
+use kvs::{KvClient, Result};
 use std::net::SocketAddr;
 
 #[derive(Parser, Debug)]
@@ -36,12 +36,12 @@ fn main() -> Result<()> {
             println!("{:?}", resp);
         }
         Commands::Set { key, value } => {
-            let resp = cli.set(key.to_owned(), value.to_owned())?;
-            println!("{:?}", resp);
+            cli.set(key.to_owned(), value.to_owned())?;
+            println!("Ok");
         }
         Commands::Rm { key } => {
-            let resp = cli.remove(key.to_owned())?;
-            println!("{:?}", resp);
+            cli.remove(key.to_owned())?;
+            println!("Ok");
         }
     }
 

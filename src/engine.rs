@@ -146,7 +146,7 @@ impl KvStore {
 
         let size = serialized.len();
         let offset = file.metadata().unwrap().len() as usize;
-        file.write(&serialized)?;
+        file.write_all(&serialized)?;
 
         Ok((offset, size))
     }
@@ -180,8 +180,8 @@ impl KvStore {
             let mut new_mapping = HashMap::new();
             {
                 let mut new_log = Self::open_logfile(&new_log_path);
-                for (key, meta) in (&mut self.mapping).into_iter() {
-                    let entry = Self::deserialize(&mut self.file, &meta)?;
+                for (key, meta) in (self.mapping).iter_mut() {
+                    let entry = Self::deserialize(&self.file, meta)?;
                     let (offset, size) = Self::append_file(&mut new_log, entry)?;
                     new_mapping.insert(key.to_owned(), EntryPos { offset, size });
                 }
@@ -212,7 +212,7 @@ impl KvsEngine for KvStore {
         match self.mapping.get(&key) {
             None => Ok(None),
             Some(meta) => {
-                let entry = Self::deserialize(&self.file, &meta)?;
+                let entry = Self::deserialize(&self.file, meta)?;
                 Ok(entry.value)
             }
         }
