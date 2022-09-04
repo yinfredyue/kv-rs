@@ -10,6 +10,8 @@ pub enum KvStoreError {
     SerdeError,
     ///
     RemoveNonexistingKey,
+    ///
+    SledError,
 }
 
 impl From<std::io::Error> for KvStoreError {
@@ -21,6 +23,12 @@ impl From<std::io::Error> for KvStoreError {
 impl From<serde_json::Error> for KvStoreError {
     fn from(_: serde_json::Error) -> Self {
         Self::SerdeError
+    }
+}
+
+impl From<sled::Error> for KvStoreError {
+    fn from(_ : sled::Error) -> Self {
+        Self::SledError
     }
 }
 

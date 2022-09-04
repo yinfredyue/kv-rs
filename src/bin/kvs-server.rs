@@ -1,5 +1,5 @@
 use clap::{Parser, ValueEnum};
-use kvs::{KvServer, KvStore, Result};
+use kvs::{KvServer, KvStore, Result, SledKvsStore};
 use std::net::SocketAddr;
 use tracing::info;
 
@@ -33,12 +33,10 @@ fn main() -> Result<()> {
     info!("Version: {}", env!("CARGO_PKG_VERSION"));
     info!("addr: {}, Engine: {:?}", args.addr, args.engine);
 
+    let dir = std::env::current_dir()?;
     match args.engine {
-        Engine::kvs => KvServer::serve(
-            KvStore::open(std::env::current_dir()?.as_path())?,
-            args.addr,
-        ),
-        Engine::sled => todo!(),
+        Engine::kvs => KvServer::serve(KvStore::open(dir.as_path())?, args.addr),
+        Engine::sled => KvServer::serve(SledKvsStore::open(dir.as_path())?, args.addr),
     }?;
 
     Ok(())

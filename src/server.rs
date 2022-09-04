@@ -8,7 +8,6 @@ use std::{
     io::{BufReader, BufWriter},
     net::{SocketAddr, TcpListener, TcpStream},
 };
-use tracing::info;
 
 ///
 pub struct KvServer<E: KvsEngine> {
@@ -30,8 +29,6 @@ impl<E: KvsEngine> KvServer<E> {
     }
 
     fn handle_connection(&mut self, stream: TcpStream) -> Result<()> {
-        info!("New connection");
-
         let reader = BufReader::new(&stream);
         let req_reader = Deserializer::from_reader(reader).into_iter::<Request>();
         let mut resp_writer = BufWriter::new(&stream);
