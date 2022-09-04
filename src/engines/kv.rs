@@ -1,25 +1,17 @@
-use crate::error::{KvStoreError, Result};
+use crate::{
+    error::{KvStoreError, Result},
+    KvsEngine,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
-use std::collections::HashMap;
-use std::fs::File;
 use std::{
     boxed::Box,
+    collections::HashMap,
     fs,
     io::{Read, Write},
     os::unix::prelude::FileExt,
     path,
 };
-
-///
-pub trait KvsEngine {
-    ///
-    fn set(&mut self, key: String, value: String) -> Result<()>;
-    ///
-    fn get(&mut self, key: String) -> Result<Option<String>>;
-    ///
-    fn remove(&mut self, key: String) -> Result<()>;
-}
 
 // Log entry written to file.
 // Set is {key, Some(value)}. Remove is {key, None}.
@@ -80,7 +72,7 @@ impl KvStore {
     }
 
     // parse an `Entry` from a file and metadata
-    fn deserialize(file: &File, meta: &EntryPos) -> Result<Entry> {
+    fn deserialize(file: &fs::File, meta: &EntryPos) -> Result<Entry> {
         let EntryPos { offset, size } = meta;
         let mut buf = vec![0u8; *size];
         file.read_exact_at(&mut buf, *offset as u64)?;
@@ -141,7 +133,7 @@ impl KvStore {
 
     // append some value to the log file, returning (offset, size).
     // Should only be called by `compact` and `append_entry`.
-    fn append_file<T: Serialize>(file: &mut File, value: T) -> Result<(usize, usize)> {
+    fn append_file<T: Serialize>(file: &mut fs::File, value: T) -> Result<(usize, usize)> {
         let serialized = serde_json::to_vec(&value)?;
 
         let size = serialized.len();
