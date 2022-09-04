@@ -1,13 +1,15 @@
-use clap::{Parser, ValueEnum};
-use kvs::{KvServer, KvStore, Result, SledKvsStore};
-use std::net::SocketAddr;
+use clap::{arg_enum, Parser, ValueEnum};
+use kvs::{KvServer, KvStore, KvStoreError, Result, SledKvsStore};
+use std::{fs, net::SocketAddr, path::Path};
 use tracing::info;
 
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
-enum Engine {
-    kvs,
-    sled,
+arg_enum! {
+    #[allow(non_camel_case_types)]
+    #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+    enum Engine {
+        kvs,
+        sled,
+    }
 }
 
 #[derive(Parser)]
@@ -34,10 +36,34 @@ fn main() -> Result<()> {
     info!("addr: {}, Engine: {:?}", args.addr, args.engine);
 
     let dir = std::env::current_dir()?;
+
+    // check engine
+    match current_engine(dir.as_path())? {
+        None => fs::write(dir.join("engine").as_path(), format!("{:?}", args.engine))?,
+        Some(prev_engine) => {
+            if prev_engine != args.engine {
+                return Err(KvStoreError::WrongEngine);
+            }
+        }
+    }
+
     match args.engine {
         Engine::kvs => KvServer::serve(KvStore::open(dir.as_path())?, args.addr),
         Engine::sled => KvServer::serve(SledKvsStore::open(dir.as_path())?, args.addr),
     }?;
 
     Ok(())
+}
+
+fn current_engine(dir_path: &Path) -> Result<Option<Engine>> {
+    let engine_file = dir_path.join("engine");
+
+    if !engine_file.try_exists()? {
+        return Ok(None);
+    }
+
+    match fs::read_to_string(engine_file)?.parse::<Engine>() {
+        Ok(e) => Ok(Some(e)),
+        Err(_) => Err(KvStoreError::WrongEngine),
+    }
 }

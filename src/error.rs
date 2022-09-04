@@ -12,6 +12,8 @@ pub enum KvStoreError {
     RemoveNonexistingKey,
     ///
     SledError,
+    ///
+    WrongEngine
 }
 
 impl From<std::io::Error> for KvStoreError {
