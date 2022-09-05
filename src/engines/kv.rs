@@ -11,6 +11,7 @@ use std::{
     io::{Read, Write},
     os::unix::prelude::FileExt,
     path,
+    sync::{Arc, Mutex},
 };
 
 // Log entry written to file.
@@ -35,9 +36,16 @@ struct EntryPos {
 }
 
 // Statistics about log entries
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Stat {
     total: usize,
+}
+
+#[derive(Debug)]
+struct Shared {
+    file: fs::File,
+    mapping: HashMap<String, EntryPos>,
+    stat: Stat,
 }
 
 /// `KvStore` stores key-value pairs, using log-structured hashtable.  
@@ -49,9 +57,10 @@ pub struct KvStore {
     file_path: Box<path::PathBuf>,
 
     // mutable
-    file: fs::File,
-    mapping: HashMap<String, EntryPos>,
-    stat: Stat,
+    // file: fs::File,
+    // mapping: HashMap<String, EntryPos>,
+    shared: Arc<Mutex<Shared>>,
+    // stat: Stat,
 }
 
 impl KvStore {
@@ -61,12 +70,16 @@ impl KvStore {
         let file_path = Box::new(dir_path.join("data.json"));
         let mut file = Self::open_logfile(&file_path);
         let mapping = Self::mapping_from_log(&mut file)?;
+        let stat = Stat { total: 0 };
+        let shared = Arc::new(Mutex::new(Shared {
+            file,
+            mapping,
+            stat,
+        }));
         let store = KvStore {
             dir_path,
             file_path,
-            file,
-            mapping,
-            stat: Stat { total: 0 },
+            shared,
         };
         Ok(store)
     }
@@ -144,11 +157,11 @@ impl KvStore {
     }
 
     // append an `Entry` to the log file. May compact. Update stat.
-    fn append_entry(&mut self, entry: Entry) -> Result<(usize, usize)> {
+    fn append_entry(&self, entry: Entry) -> Result<(usize, usize)> {
         self.compact()?;
 
-        let (offset, size) = Self::append_file(&mut self.file, entry)?;
-        self.stat.total += 1;
+        let (offset, size) = Self::append_file(&mut self.shared.lock().unwrap().file, entry)?;
+        self.shared.lock().unwrap().stat.total += 1;
 
         Ok((offset, size))
     }
@@ -165,15 +178,16 @@ impl KvStore {
     }
 
     // may compact log file
-    fn compact(&mut self) -> Result<()> {
-        if (self.mapping.len() as f32) / (self.stat.total as f32) < 0.4 {
+    fn compact(&self) -> Result<()> {
+        let mut shared = self.shared.lock().unwrap();
+        if (shared.mapping.len() as f32) / (shared.stat.total as f32) < 0.4 {
             // write new log file and create new mapping
             let new_log_path = self.dir_path.join("compacted.json");
             let mut new_mapping = HashMap::new();
             {
                 let mut new_log = Self::open_logfile(&new_log_path);
-                for (key, meta) in (self.mapping).iter_mut() {
-                    let entry = Self::deserialize(&self.file, meta)?;
+                for (key, meta) in (shared.mapping).iter() {
+                    let entry = Self::deserialize(&shared.file, meta)?;
                     let (offset, size) = Self::append_file(&mut new_log, entry)?;
                     new_mapping.insert(key.to_owned(), EntryPos { offset, size });
                 }
@@ -181,37 +195,53 @@ impl KvStore {
 
             // update fields
             fs::rename(new_log_path, self.file_path.as_path())?;
-            self.file = Self::open_logfile(self.file_path.as_path());
-            self.mapping = new_mapping;
-            self.stat = Stat { total: 0 };
+            shared.file = Self::open_logfile(self.file_path.as_path());
+            shared.mapping = new_mapping;
+            shared.stat = Stat { total: 0 };
         }
         Ok(())
     }
 }
 
+impl Clone for KvStore {
+    fn clone(&self) -> Self {
+        Self {
+            dir_path: self.dir_path.clone(),
+            file_path: self.file_path.clone(),
+            shared: self.shared.clone(),
+        }
+    }
+}
+
 impl KvsEngine for KvStore {
-    fn set(&mut self, key: String, value: String) -> Result<()> {
+    fn set(&self, key: String, value: String) -> Result<()> {
         let entry = Entry {
             key: key.to_owned(),
             value: Some(value),
         };
         let (offset, size) = self.append_entry(entry)?;
-        self.mapping.insert(key, EntryPos { offset, size });
+        self.shared
+            .lock()
+            .unwrap()
+            .mapping
+            .insert(key, EntryPos { offset, size });
         Ok(())
     }
 
-    fn get(&mut self, key: String) -> Result<Option<String>> {
-        match self.mapping.get(&key) {
+    fn get(&self, key: String) -> Result<Option<String>> {
+        let shared = self.shared.lock().unwrap();
+        match shared.mapping.get(&key) {
             None => Ok(None),
             Some(meta) => {
-                let entry = Self::deserialize(&self.file, meta)?;
+                let entry = Self::deserialize(&shared.file, meta)?;
                 Ok(entry.value)
             }
         }
     }
 
-    fn remove(&mut self, key: String) -> Result<()> {
-        if self.mapping.get(&key).is_none() {
+    fn remove(&self, key: String) -> Result<()> {
+        let mut shared = self.shared.lock().unwrap();
+        if shared.mapping.get(&key).is_none() {
             return Err(KvStoreError::RemoveNonexistingKey);
         }
 
@@ -220,7 +250,7 @@ impl KvsEngine for KvStore {
             value: None,
         };
         self.append_entry(entry)?;
-        self.mapping.remove(&key);
+        shared.mapping.remove(&key);
         Ok(())
     }
 }
