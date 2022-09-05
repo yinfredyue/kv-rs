@@ -8,7 +8,8 @@ pub use crate::error::{KvStoreError, Result};
 pub use crate::server::KvServer;
 
 mod client;
+mod engines;
 mod error;
 mod message;
 mod server;
-mod engines;
+pub mod thread_pool;
