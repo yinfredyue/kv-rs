@@ -157,11 +157,11 @@ impl KvStore {
     }
 
     // append an `Entry` to the log file. May compact. Update stat.
-    fn append_entry(&self, entry: Entry) -> Result<(usize, usize)> {
-        self.compact()?;
+    // Assumes that caller holds the mutex.
+    fn append_entry(&self, file: &mut fs::File, entry: Entry) -> Result<(usize, usize)> {
+        // self.compact()?;
 
-        let (offset, size) = Self::append_file(&mut self.shared.lock().unwrap().file, entry)?;
-        self.shared.lock().unwrap().stat.total += 1;
+        let (offset, size) = Self::append_file(file, entry)?;
 
         Ok((offset, size))
     }
@@ -219,12 +219,12 @@ impl KvsEngine for KvStore {
             key: key.to_owned(),
             value: Some(value),
         };
-        let (offset, size) = self.append_entry(entry)?;
-        self.shared
-            .lock()
-            .unwrap()
-            .mapping
-            .insert(key, EntryPos { offset, size });
+
+        let mut shared = self.shared.lock().unwrap();
+        let (offset, size) = self.append_entry(&mut shared.file, entry)?;
+        shared.stat.total += 1;
+        shared.mapping.insert(key, EntryPos { offset, size });
+
         Ok(())
     }
 
@@ -249,7 +249,8 @@ impl KvsEngine for KvStore {
             key: key.to_owned(),
             value: None,
         };
-        self.append_entry(entry)?;
+        self.append_entry(&mut shared.file, entry)?;
+        shared.stat.total += 1;
         shared.mapping.remove(&key);
         Ok(())
     }

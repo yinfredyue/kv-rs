@@ -1,6 +1,7 @@
 use crate::{KvStoreError, KvsEngine, Result};
 
 ///
+#[derive(Clone)]
 pub struct SledKvsStore {
     store: sled::Db,
 }
@@ -14,13 +15,13 @@ impl SledKvsStore {
 }
 
 impl KvsEngine for SledKvsStore {
-    fn set(&mut self, key: String, value: String) -> Result<()> {
+    fn set(&self, key: String, value: String) -> Result<()> {
         self.store.insert(key.as_bytes(), value.as_bytes())?;
         self.store.flush()?; // important
         Ok(())
     }
 
-    fn get(&mut self, key: String) -> Result<Option<String>> {
+    fn get(&self, key: String) -> Result<Option<String>> {
         let v = self
             .store
             .get(key.as_bytes())?
@@ -28,7 +29,7 @@ impl KvsEngine for SledKvsStore {
         Ok(v)
     }
 
-    fn remove(&mut self, key: String) -> Result<()> {
+    fn remove(&self, key: String) -> Result<()> {
         let old_val = self.store.remove(key.as_bytes())?;
         self.store.flush()?; // important
         match old_val {
