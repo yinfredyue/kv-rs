@@ -158,28 +158,8 @@ impl KvStore {
 
     // append an `Entry` to the log file. May compact. Update stat.
     // Assumes that caller holds the mutex.
-    fn append_entry(&self, file: &mut fs::File, entry: Entry) -> Result<(usize, usize)> {
-        // self.compact()?;
-
-        let (offset, size) = Self::append_file(file, entry)?;
-
-        Ok((offset, size))
-    }
-
-    // open a file to be used a log file, with proper flags
-    fn open_logfile(path: &path::Path) -> fs::File {
-        fs::OpenOptions::new()
-            .create(true) // open if existing, otherwise create
-            .read(true)
-            .write(true)
-            .append(true)
-            .open(&path)
-            .unwrap()
-    }
-
-    // may compact log file
-    fn compact(&self) -> Result<()> {
-        let mut shared = self.shared.lock().unwrap();
+    fn append_entry(&self, shared: &mut Shared, entry: Entry) -> Result<(usize, usize)> {
+        // compact
         if (shared.mapping.len() as f32) / (shared.stat.total as f32) < 0.4 {
             // write new log file and create new mapping
             let new_log_path = self.dir_path.join("compacted.json");
@@ -199,7 +179,21 @@ impl KvStore {
             shared.mapping = new_mapping;
             shared.stat = Stat { total: 0 };
         }
-        Ok(())
+
+        let (offset, size) = Self::append_file(&mut shared.file, entry)?;
+
+        Ok((offset, size))
+    }
+
+    // open a file to be used a log file, with proper flags
+    fn open_logfile(path: &path::Path) -> fs::File {
+        fs::OpenOptions::new()
+            .create(true) // open if existing, otherwise create
+            .read(true)
+            .write(true)
+            .append(true)
+            .open(&path)
+            .unwrap()
     }
 }
 
@@ -221,7 +215,7 @@ impl KvsEngine for KvStore {
         };
 
         let mut shared = self.shared.lock().unwrap();
-        let (offset, size) = self.append_entry(&mut shared.file, entry)?;
+        let (offset, size) = self.append_entry(&mut shared, entry)?;
         shared.stat.total += 1;
         shared.mapping.insert(key, EntryPos { offset, size });
 
@@ -249,7 +243,7 @@ impl KvsEngine for KvStore {
             key: key.to_owned(),
             value: None,
         };
-        self.append_entry(&mut shared.file, entry)?;
+        self.append_entry(&mut shared, entry)?;
         shared.stat.total += 1;
         shared.mapping.remove(&key);
         Ok(())
