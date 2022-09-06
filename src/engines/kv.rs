@@ -57,10 +57,7 @@ pub struct KvStore {
     file_path: Box<path::PathBuf>,
 
     // mutable
-    // file: fs::File,
-    // mapping: HashMap<String, EntryPos>,
     shared: Arc<Mutex<Shared>>,
-    // stat: Stat,
 }
 
 impl KvStore {
@@ -131,7 +128,6 @@ impl KvStore {
                 let new_offset = stream.byte_offset();
                 let size = new_offset - offset;
 
-                // This is an expensive way to get size. Can we do better?
                 if entry.is_remove() {
                     mapping.remove(&entry.key);
                 } else {
@@ -239,11 +235,13 @@ impl KvsEngine for KvStore {
             return Err(KvStoreError::RemoveNonexistingKey);
         }
 
-        let entry = Entry {
-            key: key.to_owned(),
-            value: None,
-        };
-        self.append_entry(&mut shared, entry)?;
+        self.append_entry(
+            &mut shared,
+            Entry {
+                key: key.to_owned(),
+                value: None,
+            },
+        )?;
         shared.stat.total += 1;
         shared.mapping.remove(&key);
         Ok(())

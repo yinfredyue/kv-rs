@@ -1,15 +1,17 @@
 use crate::{
     message::{GetResponse, RemoveResponse, Request, SetResponse},
+    thread_pool::ThreadPool,
     KvsEngine, Result,
 };
 use serde_json::Deserializer;
-use std::io::Write;
+use std::{io::Write, sync::{Arc, Mutex}};
 use std::{
     io::{BufReader, BufWriter},
     net::{SocketAddr, TcpListener, TcpStream},
 };
 
 ///
+#[derive(Clone, Debug)]
 pub struct KvServer<E: KvsEngine> {
     engine: E,
 }
@@ -17,12 +19,17 @@ pub struct KvServer<E: KvsEngine> {
 impl<E: KvsEngine> KvServer<E> {
     ///
     pub fn serve(engine: E, addr: SocketAddr) -> Result<()> {
-        let mut server = KvServer { engine };
+        let server = KvServer { engine };
+
+        let thread_pool = crate::thread_pool::NaiveThreadPool::new(0)?;
 
         let listener = TcpListener::bind(addr).unwrap();
         for stream in listener.incoming() {
             let stream = stream.unwrap();
-            server.handle_connection(stream)?;
+            let mut server = server.clone();
+            thread_pool.spawn(move || {
+                server.handle_connection(stream).unwrap();
+            })
         }
 
         Ok(())
