@@ -3,8 +3,9 @@ use crate::{
     thread_pool::ThreadPool,
     KvsEngine, Result,
 };
+use core::num;
 use serde_json::Deserializer;
-use std::{io::Write, sync::{Arc, Mutex}};
+use std::io::Write;
 use std::{
     io::{BufReader, BufWriter},
     net::{SocketAddr, TcpListener, TcpStream},
@@ -21,7 +22,7 @@ impl<E: KvsEngine> KvServer<E> {
     pub fn serve(engine: E, addr: SocketAddr) -> Result<()> {
         let server = KvServer { engine };
 
-        let thread_pool = crate::thread_pool::NaiveThreadPool::new(0)?;
+        let thread_pool = crate::thread_pool::SharedQueueThreadPool::new(num_cpus::get() as u32)?;
 
         let listener = TcpListener::bind(addr).unwrap();
         for stream in listener.incoming() {
