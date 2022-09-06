@@ -1,9 +1,9 @@
 //! Doc
 use crate::Result;
 
-pub use naive::NaiveThreadPool;
-pub use rayon::RayonThreadPool;
-pub use shared_queue::SharedQueueThreadPool;
+pub use self::naive::NaiveThreadPool;
+pub use self::rayon::RayonThreadPool;
+pub use self::shared_queue::SharedQueueThreadPool;
 
 ///
 pub trait ThreadPool {
@@ -15,7 +15,7 @@ pub trait ThreadPool {
     ///
     fn spawn<F>(&self, job: F)
     where
-        F: FnOnce() + Send + 'static;
+        F: FnOnce() + Send +  'static;
 }
 
 mod naive;

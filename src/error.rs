@@ -13,7 +13,9 @@ pub enum KvStoreError {
     ///
     SledError,
     ///
-    WrongEngine
+    WrongEngine,
+    ///
+    ThreadPoolError,
 }
 
 impl From<std::io::Error> for KvStoreError {
@@ -29,8 +31,14 @@ impl From<serde_json::Error> for KvStoreError {
 }
 
 impl From<sled::Error> for KvStoreError {
-    fn from(_ : sled::Error) -> Self {
+    fn from(_: sled::Error) -> Self {
         Self::SledError
+    }
+}
+
+impl From<rayon::ThreadPoolBuildError> for KvStoreError {
+    fn from(_: rayon::ThreadPoolBuildError) -> Self {
+        Self::ThreadPoolError
     }
 }
 

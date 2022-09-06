@@ -1,5 +1,8 @@
 use clap::{arg_enum, Parser, ValueEnum};
-use kvs::{KvServer, KvStore, KvStoreError, Result, SledKvsStore};
+use kvs::{
+    thread_pool::{SharedQueueThreadPool, ThreadPool},
+    KvServer, KvStore, KvStoreError, Result, SledKvsStore,
+};
 use std::{fs, net::SocketAddr, path::Path};
 use tracing::info;
 
@@ -47,9 +50,12 @@ fn main() -> Result<()> {
         }
     }
 
+    let num_threads = (num_cpus::get() * 2) as u32;
+    let thread_pool = SharedQueueThreadPool::new(num_threads)?;
+
     match args.engine {
-        Engine::kvs => KvServer::serve(KvStore::open(dir.as_path())?, args.addr),
-        Engine::sled => KvServer::serve(SledKvsStore::open(dir.as_path())?, args.addr),
+        Engine::kvs => KvServer::serve(KvStore::open(dir.as_path())?, thread_pool, args.addr),
+        Engine::sled => KvServer::serve(SledKvsStore::open(dir.as_path())?, thread_pool, args.addr),
     }?;
 
     Ok(())
